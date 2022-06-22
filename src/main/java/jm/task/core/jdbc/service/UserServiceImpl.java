@@ -81,7 +81,6 @@ public class UserServiceImpl implements UserService {
     }
 
     //получить всех пользователей
-    @Transactional
     public List<User> getAllUsers() throws SQLException {
         List<User> users;
         //daoJDBC = new UserDaoJDBCImpl(connection);
