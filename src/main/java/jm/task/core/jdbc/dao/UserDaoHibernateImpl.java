@@ -1,64 +1,93 @@
 package jm.task.core.jdbc.dao;
 
 import jm.task.core.jdbc.model.User;
+import jm.task.core.jdbc.util.Util;
 import org.hibernate.*;
-import java.util.ArrayList;
+import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
+import org.hibernate.cfg.Configuration;
+import org.hibernate.service.ServiceRegistry;
+
 import java.util.List;
 
 public class UserDaoHibernateImpl implements UserDao {
-    private final Session session;
+    private static SessionFactory sessionFactory;
 
 
-    public UserDaoHibernateImpl(Session session) {
-        this.session = session;
+    public UserDaoHibernateImpl() {
+        Configuration configuration = Util.getMySqlConfiguration();
+        sessionFactory = createSessionFactory(configuration);
     }
 
 
     @Override
     public void createUsersTable() {
-        String sql = "CREATE TABLE IF NOT EXISTS users (Id INT PRIMARY KEY AUTO_INCREMENT, Name VARCHAR(20),LastName VARCHAR(20), Age INT)";
+        Session session = sessionFactory.openSession();
+        String sql = "CREATE TABLE IF NOT EXISTS User (Id INT PRIMARY KEY AUTO_INCREMENT, Name VARCHAR(20),LastName VARCHAR(20), Age INT)";
         session.createSQLQuery(sql).executeUpdate();
+        session.close();
     }
 
     @Override
     public void dropUsersTable() {
-        String sql = "DROP TABLE IF EXISTS users";
+        Session session = sessionFactory.openSession();
+        Transaction transaction = session.beginTransaction();
+        String sql = "DROP TABLE IF EXISTS User";
         session.createSQLQuery(sql).executeUpdate();
+        transaction.commit();
+        session.close();
     }
 
     @Override
     public void saveUser(String name, String lastName, byte age) {
-        String sql = "INSERT users (Name,LastName,Age) VALUES ('" + name + "','" + lastName + "'," + age + ")";
-        session.createSQLQuery(sql).executeUpdate();
+        Session session = sessionFactory.openSession();
+        Transaction transaction = session.beginTransaction();
+        session.save(new User(name,lastName,age));
+        transaction.commit();
+        session.close();
         System.out.println("User с именем - " + name + " добавлен в базу данных");
     }
 
     @Override
     public void removeUserById(long id) {
-        String sql = "DELETE FROM users WHERE Id =" + id;
-        session.createSQLQuery(sql).executeUpdate();
+        Session session = sessionFactory.openSession();
+        Transaction transaction = session.beginTransaction();
+        session.delete(session.get(User.class,id));
+        transaction.commit();
+        session.close();
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<User> getAllUsers() {
-        String sql = "select Name, LastName, Age from USERS";
-        Query query = session.createSQLQuery(sql);
-        List<Object[]> rows = query.list();
-        List<User> users = new ArrayList<>();
-        for (Object[] row : rows) {
-            String name = row[0].toString();
-            String lastName = row[1].toString();
-            byte age = Byte.parseByte(row[2].toString());
-            users.add(new User(name, lastName, age));
-        }
+        Session session = sessionFactory.openSession();
+        Transaction transaction = session.beginTransaction();
+        transaction.commit();
+        List<User> users=session.createCriteria(User.class).list();
+        session.close();
         return users;
-    }
 
+    }
+    @SuppressWarnings("unchecked")
     @Override
     public void cleanUsersTable() {
-        String sql = "DELETE FROM users";
-        session.createSQLQuery(sql).executeUpdate();
+        Session session = sessionFactory.openSession();
+        Transaction transaction = session.beginTransaction();
+        List<User> users=session.createCriteria(User.class).list();
+        for (User user : users) {
+            session.delete(user);
+        }
+        transaction.commit();
+        session.close();
+    }
+    private static SessionFactory createSessionFactory(Configuration configuration) {
+        StandardServiceRegistryBuilder builder = new StandardServiceRegistryBuilder();
+        builder.applySettings(configuration.getProperties());
+        ServiceRegistry serviceRegistry = builder.build();
+        return configuration.buildSessionFactory(serviceRegistry);
+
+    }
+    public void stop() {
+        sessionFactory.close();
     }
 
 }
